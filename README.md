@@ -1,4 +1,4 @@
-# Trình Mô Phỏng Lập Lịch CPU (CPU Scheduling Simulator)
+# Trình Lập Lịch CPU (CPU Scheduler)
 
 Đồ án này là một hệ thống mô phỏng việc lập lịch CPU trên hệ điều hành, quản lý tiến trình với sự hỗ trợ của đa hàng đợi (multi-queue). Hệ thống hoạt động theo nguyên tắc **Round Robin** xoay vòng giữa các hàng đợi và sử dụng một trong các thuật toán chuyên sâu như **SJF (Shortest Job First)** hoặc **SRTN (Shortest Remaining Time Next)** ở bên trong mỗi hàng đợi.
 
@@ -19,10 +19,10 @@ Time_Scheduling/
 │   │   ├── sjf.py         # Logic lõi của SJF.
 │   │   └── srtn.py        # Logic lõi của SRTN.
 │   │
-│   ├── controller/        <-- Tầng Dịch Vụ Ứng Dụng (Application Service / Logic Mũi Nhọn)
-│   │   └── simulator.py   # Nhận input, chứa hàm mô phỏng chính `simulate()`, điều phối chạy thuật toán.
-│   │
-│   ├── io/                <-- Tầng Giao Tiếp Dữ Liệu (Infrastructure / I-O Layer)
+    ├── controller/        <-- Tầng Dịch Vụ Ứng Dụng (Application Service / Logic Mũi Nhọn)
+    │   └── scheduler.py   # Nhận input, chứa hàm lập lịch chính `run_scheduling()`, điều phối chạy thuật toán.
+    │
+    ├── io/                <-- Tầng Giao Tiếp Dữ Liệu (Infrastructure / I-O Layer)
 │   │   ├── parser.py      # Đọc file `.txt` đầu vào và parse (chuyển đổi) sang dữ liệu mô hình.
 │   │   └── reportWriter.py# Xuất biểu đồ và bảng dữ liệu trạng thái xử lý sau khi mô phỏng xong.
 │   │
@@ -56,8 +56,8 @@ Tại thư mục `src/algorithms/`, ta có file trung tâm là `registry.py` ho�
 ### Cơ Chế Hoạt Động (How it works)
 
 1. **Sổ Đăng Ký (Registry):** Trong `registry.py` có một danh sách `_REGISTRY` (Mapping tên thuật toán dạng chuỗi `'SJF'` -> con trỏ đến thẳng hàm thực thi SJF). Tất cả tuân theo cùng một kiểu dáng hàm biểu mẫu `PolicyRunner`.
-2. **Tích Hợp Nhẹ Nhàng:** `simulator.py` ở bên ngoài khi cần chạy một hàng đợi KHÔNG CẦN quan tâm đó là chạy SJF hay SRTN. Nó chỉ yêu cầu: `"Lấy cho tôi hàm runner đang được gắn với tên SJF"`. Khi nhận được cái bóng (adapter) của hàm đó, `simulator.py` chỉ việc cung cấp thông số đầu vào và nổ máy!
-3. **Mở Rộng Không Bằng Cách Chỉnh Sửa:** Khi muốn thêm một thuật toán mới như **FCFS** (First Come First Serve), KHÔNG CẦN chạm vào hay sửa một ký tự nào ở `simulator.py`. Chỉ cần:
+2. **Tích Hợp Nhẹ Nhàng:** `scheduler.py` ở bên ngoài khi cần chạy một hàng đợi KHÔNG CẦN quan tâm đó là chạy SJF hay SRTN. Nó chỉ yêu cầu: `"Lấy cho tôi hàm runner đang được gắn với tên SJF"`. Khi nhận được cái bóng (adapter) của hàm đó, `scheduler.py` chỉ việc cung cấp thông số đầu vào và nổ máy!
+3. **Mở Rộng Không Bằng Cách Chỉnh Sửa:** Khi muốn thêm một thuật toán mới như **FCFS** (First Come First Serve), KHÔNG CẦN chạm vào hay sửa một ký tự nào ở `scheduler.py`. Chỉ cần:
    - Tạo file `fcfs.py` trong `src/algorithms`.
    - Vào `registry.py` để nhúng hàm đó vào bản ghi (vd: `"FCFS": _run_fcfs`).
      -> **Phần mềm lập tức hiểu thêm thuật toán mới**. Code tuân thủ tuyệt đối nguyên lý **Open-Closed Principle (OCP)** trong SOLID (Cho phép mở rộng, hạn chế chỉnh sửa code cũ).
@@ -70,7 +70,7 @@ Tại thư mục `src/algorithms/`, ta có file trung tâm là `registry.py` ho�
 
 1. **Khởi Tạo (Bootstrapping):** Bắt đầu từ việc gọi lệnh terminal. File `main.py` khơi động `cli.py` để đọc và xác thực đường dẫn file `input.txt` & `output.txt` từ người dùng.
 2. **Đọc Dữ Liệu (`io/parser.py`):** Lấy danh sách cấu hình hàng đợi (`QueueConfig`) và danh sách tiến trình (`Process`), sắp xếp sẵn các tiến trình theo thứ tự xuất hiện gốc vào mảng.
-3. **Vòng Lặp Mô Phỏng (`controller/simulator.py`):**
+3. **Vòng Lặp Lập Lịch (`controller/scheduler.py`):**
    - Vòng lặp liên tục đẩy các tiến trình nhét vào khung lưới chờ của hàng đợi khi tới giờ (arrival time).
    - Kiểm tra thuật toán **Round Robin** (`algorithms/roundRobin.py`) để quyết định xem bước tới sẽ cho phép hàng đợi số nào chạy CPU.
    - Khi đã biết hàng đợi nào đc phép giữ CPU, hệ thống tra cứu thuật toán con của chính hàng đợi đó (qua _Plugin Registry_) như **SJF** hoặc **SRTN**.

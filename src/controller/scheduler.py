@@ -1,4 +1,4 @@
-# src/controller/simulator.py
+# src/controller/scheduler.py
 from __future__ import annotations
 
 from typing import List, Tuple, Optional
@@ -8,7 +8,7 @@ from src.algorithms.roundRobin import pickNextQueue
 from src.algorithms.registry import get_policy_runner
 
 
-def pushArrivals(
+def admit_new_processes(
     t: int,
     notArrived: List[Process],
     readyLists: List[List[Process]],
@@ -25,11 +25,11 @@ def pushArrivals(
         readyLists[qi].append(p)
 
 
-def allEmpty(readyLists: List[List[Process]]) -> bool:
+def is_system_idle(readyLists: List[List[Process]]) -> bool:
     return all(len(lst) == 0 for lst in readyLists)
 
 
-def getNextArrivalTimeForQueue(notArrived: List[Process], queueId: str) -> Optional[int]:
+def peek_next_arrival_time(notArrived: List[Process], queueId: str) -> Optional[int]:
     """
     Tìm thời gian đến tiếp theo trong nhóm các tiến trình chưa đến (notArrived) thuộc hàng đợi queueId.
     Trả về None nếu không còn tiến trình nào trong tương lai cho hàng đợi đó.
@@ -40,12 +40,12 @@ def getNextArrivalTimeForQueue(notArrived: List[Process], queueId: str) -> Optio
     return None
 
 
-def simulate(
+def run_scheduling(
     queues: List[QueueConfig],
     processes: List[Process],
 ) -> Tuple[List[Segment], List[Process]]:
     """
-    Thực hiện mô phỏng toàn bộ hệ thống:
+    Thực hiện lập lịch cho toàn bộ hệ thống:
     - Định vị hàng đợi theo vòng (Round Robin).
     - Trong mỗi hàng đợi: áp dụng chiến lược SJF hoặc SRTN (dựa vào cấu hình đầu vào).
     Trả về: danh sách các đoạn thời gian thực thi (segments) và danh sách tiến trình (đã cập nhật thời gian hoàn thành).
@@ -66,10 +66,10 @@ def simulate(
     finishedCount = 0
 
     while finishedCount < total:
-        pushArrivals(t, notArrived, readyLists, queueIndex)
+        admit_new_processes(t, notArrived, readyLists, queueIndex)
 
         # CPU nhàn rỗi (idle) -> tua nhanh thời gian (jump time) tới tiến trình đến tiếp theo
-        if allEmpty(readyLists):
+        if is_system_idle(readyLists):
             if not notArrived:
                 break
             t = notArrived[0].arrival
@@ -86,12 +86,12 @@ def simulate(
         while budget > 0 and len(readyLists[qIdx]) > 0:
             # Tính toán xem bao giờ thì có tiến trình mới gia nhập CÙNG KHỐI HÀNG ĐỢI NÀY,
             # dùng cho việc đánh giá ngắt (preempt) (nếu chiến lược là SRTN thì cần quan tâm).
-            nextArrivalTime = getNextArrivalTimeForQueue(notArrived, qId)
+            nextArrivalTime = peek_next_arrival_time(notArrived, qId)
 
             # Đảm bảo invariants cho SRTN: nếu có arrival mới đúng tại t thì phải push trước
             if policyName == "SRTN":
                 if nextArrivalTime is not None and nextArrivalTime == t:
-                    pushArrivals(t, notArrived, readyLists, queueIndex)
+                    admit_new_processes(t, notArrived, readyLists, queueIndex)
                     continue
 
             t, budget = policyRunner(
@@ -104,7 +104,7 @@ def simulate(
             )
 
             # Sau khi thời gian tăng lên, có thể sẽ có những tiến trình mới vừa đến, ta cần đưa chúng vào lưới chờ
-            pushArrivals(t, notArrived, readyLists, queueIndex)
+            admit_new_processes(t, notArrived, readyLists, queueIndex)
 
             # Cập nhật số lượng tiến trình đã hoàn thành thành công (cách này chậm mà chắc)
             finishedCount = sum(1 for p in processes if p.completion is not None)
